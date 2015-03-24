@@ -19,12 +19,13 @@
 
  */
 
-// $Revision: 1600 $ $Date:: 2015-03-20 #$ $Author: serge $
+// $Revision: 1609 $ $Date:: 2015-03-23 #$ $Author: serge $
 
 #ifndef LIB_WAVE_WAVE_H
 #define LIB_WAVE_WAVE_H
 
 #include <string>
+#include <vector>       // std::vector
 #include <stdint.h>     // int32_t, int16_t
 #include <exception>    // std::exception
 
@@ -34,9 +35,13 @@ public:
     Wave();
     Wave( const std::string & filename ) throw( std::exception );
     Wave( const Wave& w );
+
+    Wave( int16_t nChannels, int32_t nSamplesPerSec, int16_t wBitsPerSample ) throw( std::exception );
+
     virtual ~Wave();
 
     Wave operator+( const Wave& wave ) const throw( std::exception );
+    Wave& operator+=( const Wave& wave ) throw( std::exception );
     Wave& operator=( const Wave &w );
 
     void save( const std::string & filename );
@@ -46,7 +51,6 @@ public:
         char riffID[4];     //4
         int32_t riffSIZE;   //4
         char riffFORMAT[4]; //4
-
     };
 
     struct FMTHDR
@@ -77,24 +81,29 @@ public:
     };
 
 public:
-    const int RIFF_SIZE     = 12;
-    const int FMTHDR_SIZE   = 8;
-    const int DATA_SIZE     = 8;
-    const int FACT_SIZE     = 8;
+    static const int RIFF_SIZE     = 12;
+    static const int FMTHDR_SIZE   = 8;
+    static const int DATA_SIZE     = 8;
+    static const int FACT_SIZE     = 8;
 
 private:
 
     void init( const Wave& );
 
+    static int32_t calc_riff_size( int32_t fmtSIZE, int32_t dataSIZE );
+    void update_riff_size();
+
+
 private:
-    char        * wave_;
+    std::vector<char>   wave_;
+
     RIFF        riff;
     FMTHDR      fmthdr;
     FMT         *fmt;
     FACT        fact;
     DATA        data;
     int16_t     extra_param_length_;
-    char*       extra_param_;
+    std::vector<char>   extra_param_;
 
 };
 

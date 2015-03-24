@@ -19,7 +19,7 @@
 
  */
 
-// $Revision: 1600 $ $Date:: 2015-03-20 #$ $Author: serge $
+// $Revision: 1610 $ $Date:: 2015-03-23 #$ $Author: serge $
 
 #include "wave.h"           // self
 
@@ -30,8 +30,6 @@
 
 Wave::Wave( const std::string & filename ) throw( std::exception )
 {
-    extra_param_    = nullptr;
-    wave_           = nullptr;
     fmt             = nullptr;
     extra_param_length_ = 0;
     fact.samplesNumber  = -1;
@@ -54,8 +52,8 @@ Wave::Wave( const std::string & filename ) throw( std::exception )
         file.read( reinterpret_cast<char*>( &extra_param_length_ ), 2 ); //2 bytes
         if( extra_param_length_ > 0 )
         {
-            extra_param_ = new char[extra_param_length_];
-            file.read( reinterpret_cast<char*>( extra_param_ ), extra_param_length_ );
+            extra_param_.resize( extra_param_length_ );
+            file.read( & extra_param_[0], extra_param_length_ );
         }
     }
 
@@ -69,19 +67,47 @@ Wave::Wave( const std::string & filename ) throw( std::exception )
     else
         file.read( reinterpret_cast<char*>( &data.dataSIZE ), 4 );
 
-    wave_ = new char[data.dataSIZE];
+    wave_.resize( data.dataSIZE );
 
-    file.read( reinterpret_cast<char*>( wave_ ), data.dataSIZE );
+    file.read( & wave_[0], data.dataSIZE );
 }
 
 Wave::Wave()
 {
     extra_param_length_ = 0;
-    extra_param_        = nullptr;
-    wave_               = nullptr;
     fmt                 = nullptr;
     fact.samplesNumber  = -1;
 }
+
+Wave::Wave( int16_t nChannels, int32_t nSamplesPerSec, int16_t wBitsPerSample ) throw( std::exception )
+{
+    int16_t bytes = ( wBitsPerSample + 7 ) / 8;
+
+    memcpy( riff.riffID, "RIFF", 4 );
+    riff.riffSIZE           = 0;
+
+    memcpy( riff.riffFORMAT, "WAVE", 4 );
+
+    memcpy( fmthdr.fmtID, "fmt ", 4 );
+    fmthdr.fmtSIZE          = sizeof( FMT );
+
+    fmt                     = new FMT;
+    fmt->wFormatTag         = 1;
+    fmt->nChannels          = nChannels;
+    fmt->nSamplesPerSec     = nSamplesPerSec;
+    fmt->nAvgBytesPerSec    = nChannels * nSamplesPerSec * bytes;
+    fmt->nBlockAlign        = nChannels * bytes;
+    fmt->wBitsPerSample     = wBitsPerSample;
+
+    extra_param_length_     = 0;
+    fact.samplesNumber      = -1;
+
+    memcpy( data.dataID, "data", 4 );
+    data.dataSIZE       = 0;
+
+    update_riff_size();
+}
+
 Wave::Wave( const Wave& w )
 {
     init( w );
@@ -93,10 +119,6 @@ Wave& Wave::operator=( const Wave &w )
 }
 Wave::~Wave()
 {
-    if( extra_param_ )
-        delete[] extra_param_;
-    if( wave_ )
-        delete[] wave_;
     if( fmt )
         delete[] fmt;
 }
@@ -118,15 +140,45 @@ Wave Wave::operator+( const Wave &w ) const throw( std::exception )
     res.extra_param_length_ = w.extra_param_length_;
     if( w.extra_param_length_ )
     {
-        res.extra_param_ = new char[w.extra_param_length_];
-        memcpy( res.extra_param_, w.extra_param_, w.extra_param_length_ );
+        res.extra_param_    = w.extra_param_;
     }
 
-    res.wave_ = new char[res.data.dataSIZE];
-    memcpy( res.wave_, wave_, data.dataSIZE );
-    memcpy( res.wave_ + data.dataSIZE, w.wave_, w.data.dataSIZE );
+    res.wave_   = wave_;
+
+    res.wave_.insert( res.wave_.end(), w.wave_.begin(), w.wave_.end() );
+
+    res.update_riff_size();
 
     return res;
+}
+
+Wave& Wave::operator+=( const Wave &w ) throw( std::exception )
+{
+    if( fmt == nullptr )
+    {
+        init( w );
+        return *this;
+    }
+
+    if( fmt->wFormatTag != w.fmt->wFormatTag )
+        throw std::runtime_error( "Can't concatenate waves with different format tags" );
+
+    if( fmt->nChannels != w.fmt->nChannels )
+        throw std::runtime_error( "different number of channels" );
+
+    if( fmt->nSamplesPerSec != w.fmt->nSamplesPerSec )
+        throw std::runtime_error( "different number of samples per second" );
+
+    if( fmt->wBitsPerSample != w.fmt->wBitsPerSample )
+        throw std::runtime_error( "different number of bits per sample" );
+
+    wave_.insert( wave_.end(), w.wave_.begin(), w.wave_.end() );
+
+    data.dataSIZE   += w.data.dataSIZE;
+
+    update_riff_size();
+
+    return *this;
 }
 
 void Wave::init( const Wave& w )
@@ -141,11 +193,19 @@ void Wave::init( const Wave& w )
     extra_param_length_ = w.extra_param_length_;
     if( w.extra_param_length_ )
     {
-        extra_param_ = new char[extra_param_length_];
-        memcpy( extra_param_, w.extra_param_, extra_param_length_ );
+        extra_param_ = w.extra_param_;
     }
-    wave_ = new char[data.dataSIZE];
-    memcpy( wave_, w.wave_, data.dataSIZE );
+    wave_ = w.wave_;
+}
+
+int32_t Wave::calc_riff_size( int32_t fmtSIZE, int32_t dataSIZE )
+{
+    return RIFF_SIZE - 4 + FMTHDR_SIZE + fmtSIZE + DATA_SIZE + dataSIZE;
+}
+
+void Wave::update_riff_size()
+{
+    riff.riffSIZE   = calc_riff_size( fmthdr.fmtSIZE, data.dataSIZE );
 }
 
 void Wave::save( const std::string & filename )
@@ -161,7 +221,7 @@ void Wave::save( const std::string & filename )
     {
         file.write( reinterpret_cast<char*>( &extra_param_length_ ), 2 );
         if( extra_param_length_ > 0 )
-            file.write( reinterpret_cast<char*>( extra_param_ ), extra_param_length_ );
+            file.write( & extra_param_[0], extra_param_length_ );
     }
     if( fact.samplesNumber > -1 )
     {
@@ -170,6 +230,6 @@ void Wave::save( const std::string & filename )
     }
 
     file.write( reinterpret_cast<char*>( & data ), DATA_SIZE );
-    file.write( reinterpret_cast<char*>( wave_) , data.dataSIZE );
+    file.write( & wave_[0] , data.dataSIZE );
 }
 
