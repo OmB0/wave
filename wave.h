@@ -19,7 +19,7 @@
 
  */
 
-// $Revision: 1609 $ $Date:: 2015-03-23 #$ $Author: serge $
+// $Revision: 1625 $ $Date:: 2015-03-24 #$ $Author: serge $
 
 #ifndef LIB_WAVE_WAVE_H
 #define LIB_WAVE_WAVE_H
@@ -43,6 +43,12 @@ public:
     Wave operator+( const Wave& wave ) const throw( std::exception );
     Wave& operator+=( const Wave& wave ) throw( std::exception );
     Wave& operator=( const Wave &w );
+
+    int16_t get_channels() const;
+    int32_t get_samples_per_sec() const;
+    int32_t get_avg_bytes_per_sec() const;
+
+    void get_samples( unsigned int offset, unsigned int size, std::vector<char> & samples ) const;
 
     void save( const std::string & filename );
 

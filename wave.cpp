@@ -19,7 +19,7 @@
 
  */
 
-// $Revision: 1610 $ $Date:: 2015-03-23 #$ $Author: serge $
+// $Revision: 1625 $ $Date:: 2015-03-24 #$ $Author: serge $
 
 #include "wave.h"           // self
 
@@ -206,6 +206,31 @@ int32_t Wave::calc_riff_size( int32_t fmtSIZE, int32_t dataSIZE )
 void Wave::update_riff_size()
 {
     riff.riffSIZE   = calc_riff_size( fmthdr.fmtSIZE, data.dataSIZE );
+}
+
+int16_t Wave::get_channels() const
+{
+    return fmt->nChannels;
+}
+
+int32_t Wave::get_samples_per_sec() const
+{
+    return fmt->nSamplesPerSec;
+}
+
+int32_t Wave::get_avg_bytes_per_sec() const
+{
+    return fmt->nAvgBytesPerSec;
+}
+
+void Wave::get_samples( unsigned int offset, unsigned int size, std::vector<char> & samples ) const
+{
+    if( offset > ( unsigned )data.dataSIZE )
+        return;
+
+    unsigned int real_size = ( offset + size ) < ( unsigned )data.dataSIZE ? size : ( unsigned )data.dataSIZE - offset;
+
+    samples.insert( samples.end(), & wave_[offset], & wave_[offset + real_size] );
 }
 
 void Wave::save( const std::string & filename )
