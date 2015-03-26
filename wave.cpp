@@ -19,7 +19,7 @@
 
  */
 
-// $Revision: 1625 $ $Date:: 2015-03-24 #$ $Author: serge $
+// $Revision: 1652 $ $Date:: 2015-03-25 #$ $Author: serge $
 
 #include "wave.h"           // self
 
@@ -27,6 +27,8 @@
 #include <fstream>          // std::ofstream
 #include <errno.h>          // errno
 #include <cstring>          // strerror
+
+using namespace wave;
 
 Wave::Wave( const std::string & filename ) throw( std::exception )
 {
@@ -208,6 +210,11 @@ void Wave::update_riff_size()
     riff.riffSIZE   = calc_riff_size( fmthdr.fmtSIZE, data.dataSIZE );
 }
 
+void Wave::update_data_size()
+{
+    data.dataSIZE   = wave_.size();
+}
+
 int16_t Wave::get_channels() const
 {
     return fmt->nChannels;
@@ -231,6 +238,67 @@ void Wave::get_samples( unsigned int offset, unsigned int size, std::vector<char
     unsigned int real_size = ( offset + size ) < ( unsigned )data.dataSIZE ? size : ( unsigned )data.dataSIZE - offset;
 
     samples.insert( samples.end(), & wave_[offset], & wave_[offset + real_size] );
+}
+
+void Wave::append_samples( const std::vector<char> & samples )
+{
+    wave_.insert( wave_.end(), samples.begin(), samples.end() );
+
+    update_data_size();
+    update_riff_size();
+}
+
+void Wave::append_samples( const char* samples, int size )
+{
+    wave_.insert( wave_.end(), samples, samples + size );
+
+    update_data_size();
+    update_riff_size();
+}
+
+void Wave::append_samples( const std::vector<char> & samples_l, const std::vector<char> & samples_r )
+{
+    if( fmt->nChannels != 2 )
+        throw std::logic_error( (
+                "Wave::append_samples(): cannot add stereo samples, nChannels = " +
+                std::to_string( fmt->nChannels )).c_str() );
+
+    if( samples_l.size() != samples_r.size() )
+        throw std::logic_error( (
+                "Wave::append_samples(): samples have different sizes, l " +
+                std::to_string( samples_l.size() ) + " r " + std::to_string( samples_r.size() )).c_str() );
+
+    int bytes_per_sample   = fmt->wBitsPerSample / 8;
+
+    size_t size = samples_l.size();
+
+    for( size_t i = 0; i < size; i = i + bytes_per_sample )
+    {
+        wave_.insert( wave_.end(), samples_l[i], samples_l[i + bytes_per_sample] );
+        wave_.insert( wave_.end(), samples_r[i], samples_r[i + bytes_per_sample] );
+    }
+
+    update_data_size();
+    update_riff_size();
+}
+
+void Wave::append_samples( const char* samples_l, const char* samples_r, int size )
+{
+    if( fmt->nChannels != 2 )
+        throw std::logic_error( (
+                "Wave::append_samples(): cannot add stereo samples, nChannels = " +
+                std::to_string( fmt->nChannels )).c_str() );
+
+    int bytes_per_sample   = fmt->wBitsPerSample / 8;
+
+    for( int i = 0; i < size; i = i + bytes_per_sample )
+    {
+        wave_.insert( wave_.end(), samples_l[i], samples_l[i + bytes_per_sample] );
+        wave_.insert( wave_.end(), samples_r[i], samples_r[i + bytes_per_sample] );
+    }
+
+    update_data_size();
+    update_riff_size();
 }
 
 void Wave::save( const std::string & filename )

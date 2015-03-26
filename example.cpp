@@ -1,5 +1,7 @@
 #include "wave.h"   // Wave
 
+using namespace wave;
+
 int main( int argc, char* argv[] )
 {
     Wave wave1( "a.wav" );

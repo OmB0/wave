@@ -19,7 +19,7 @@
 
  */
 
-// $Revision: 1625 $ $Date:: 2015-03-24 #$ $Author: serge $
+// $Revision: 1652 $ $Date:: 2015-03-25 #$ $Author: serge $
 
 #ifndef LIB_WAVE_WAVE_H
 #define LIB_WAVE_WAVE_H
@@ -28,6 +28,9 @@
 #include <vector>       // std::vector
 #include <stdint.h>     // int32_t, int16_t
 #include <exception>    // std::exception
+
+namespace wave
+{
 
 class Wave
 {
@@ -49,6 +52,10 @@ public:
     int32_t get_avg_bytes_per_sec() const;
 
     void get_samples( unsigned int offset, unsigned int size, std::vector<char> & samples ) const;
+    void append_samples( const std::vector<char> & samples );
+    void append_samples( const char* samples, int size );
+    void append_samples( const std::vector<char> & samples_l, const std::vector<char> & samples_r );
+    void append_samples( const char* samples_l, const char* samples_r, int size );
 
     void save( const std::string & filename );
 
@@ -98,6 +105,7 @@ private:
 
     static int32_t calc_riff_size( int32_t fmtSIZE, int32_t dataSIZE );
     void update_riff_size();
+    void update_data_size();
 
 
 private:
@@ -112,5 +120,7 @@ private:
     std::vector<char>   extra_param_;
 
 };
+
+} // namespace wave
 
 #endif // LIB_WAVE_WAVE_H
