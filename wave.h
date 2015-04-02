@@ -19,7 +19,7 @@
 
  */
 
-// $Revision: 1652 $ $Date:: 2015-03-25 #$ $Author: serge $
+// $Revision: 1690 $ $Date:: 2015-04-01 #$ $Author: serge $
 
 #ifndef LIB_WAVE_WAVE_H
 #define LIB_WAVE_WAVE_H
@@ -94,10 +94,11 @@ public:
     };
 
 public:
-    static const int RIFF_SIZE     = 12;
-    static const int FMTHDR_SIZE   = 8;
-    static const int DATA_SIZE     = 8;
-    static const int FACT_SIZE     = 8;
+    static const int RIFF_SIZE      = 12;
+    static const int FMTHDR_SIZE    = 8;
+    static const int FMT_SIZE       = 16;
+    static const int DATA_SIZE      = 8;
+    static const int FACT_SIZE      = 8;
 
 private:
 
@@ -113,7 +114,8 @@ private:
 
     RIFF        riff;
     FMTHDR      fmthdr;
-    FMT         *fmt;
+    FMT         fmt;
+    std::vector<char>   fmt_extra_bytes_;
     FACT        fact;
     DATA        data;
     int16_t     extra_param_length_;

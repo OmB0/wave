@@ -19,7 +19,7 @@
 
  */
 
-// $Revision: 1652 $ $Date:: 2015-03-25 #$ $Author: serge $
+// $Revision: 1690 $ $Date:: 2015-04-01 #$ $Author: serge $
 
 #include "wave.h"           // self
 
@@ -32,7 +32,7 @@ using namespace wave;
 
 Wave::Wave( const std::string & filename ) throw( std::exception )
 {
-    fmt             = nullptr;
+    fmt.wFormatTag      = 0;
     extra_param_length_ = 0;
     fact.samplesNumber  = -1;
 
@@ -45,11 +45,18 @@ Wave::Wave( const std::string & filename ) throw( std::exception )
     file.read( reinterpret_cast<char*>( &riff ), RIFF_SIZE );
     file.read( reinterpret_cast<char*>( &fmthdr ), FMTHDR_SIZE );
 
-    fmt = reinterpret_cast<FMT*>( new char[ fmthdr.fmtSIZE ] );
+    file.read( reinterpret_cast<char*>( &fmt ), FMT_SIZE );
 
-    file.read( reinterpret_cast<char*>( fmt ), fmthdr.fmtSIZE );
+    unsigned fmt_extra_bytes    = fmthdr.fmtSIZE - FMT_SIZE;
 
-    if( fmt->wFormatTag != 1 )
+    if( fmt_extra_bytes > 0 )
+    {
+        fmt_extra_bytes_.resize( fmt_extra_bytes );
+
+        file.read( & fmt_extra_bytes_[0], fmt_extra_bytes );
+    }
+
+    if( fmt.wFormatTag != 1 )
     {
         file.read( reinterpret_cast<char*>( &extra_param_length_ ), 2 ); //2 bytes
         if( extra_param_length_ > 0 )
@@ -77,7 +84,7 @@ Wave::Wave( const std::string & filename ) throw( std::exception )
 Wave::Wave()
 {
     extra_param_length_ = 0;
-    fmt                 = nullptr;
+    fmt.wFormatTag      = 0;
     fact.samplesNumber  = -1;
 }
 
@@ -93,13 +100,12 @@ Wave::Wave( int16_t nChannels, int32_t nSamplesPerSec, int16_t wBitsPerSample ) 
     memcpy( fmthdr.fmtID, "fmt ", 4 );
     fmthdr.fmtSIZE          = sizeof( FMT );
 
-    fmt                     = new FMT;
-    fmt->wFormatTag         = 1;
-    fmt->nChannels          = nChannels;
-    fmt->nSamplesPerSec     = nSamplesPerSec;
-    fmt->nAvgBytesPerSec    = nChannels * nSamplesPerSec * bytes;
-    fmt->nBlockAlign        = nChannels * bytes;
-    fmt->wBitsPerSample     = wBitsPerSample;
+    fmt.wFormatTag          = 1;
+    fmt.nChannels           = nChannels;
+    fmt.nSamplesPerSec      = nSamplesPerSec;
+    fmt.nAvgBytesPerSec     = nChannels * nSamplesPerSec * bytes;
+    fmt.nBlockAlign         = nChannels * bytes;
+    fmt.wBitsPerSample      = wBitsPerSample;
 
     extra_param_length_     = 0;
     fact.samplesNumber      = -1;
@@ -121,19 +127,17 @@ Wave& Wave::operator=( const Wave &w )
 }
 Wave::~Wave()
 {
-    if( fmt )
-        delete[] fmt;
 }
 
 Wave Wave::operator+( const Wave &w ) const throw( std::exception )
 {
-    if( fmt->wFormatTag != w.fmt->wFormatTag )
+    if( fmt.wFormatTag != w.fmt.wFormatTag )
         throw std::runtime_error( "Can't concatenate waves with different format tags" );
 
     Wave res;
-    res.fmthdr = w.fmthdr;
-    res.fmt = reinterpret_cast<FMT*>( new char[w.fmthdr.fmtSIZE] );
-    memcpy( res.fmt, w.fmt, w.fmthdr.fmtSIZE );
+    res.fmthdr  = w.fmthdr;
+    res.fmt     = w.fmt;
+    res.fmt_extra_bytes_    = w.fmt_extra_bytes_;
 
     res.riff = w.riff;
     res.data = w.data;
@@ -156,22 +160,22 @@ Wave Wave::operator+( const Wave &w ) const throw( std::exception )
 
 Wave& Wave::operator+=( const Wave &w ) throw( std::exception )
 {
-    if( fmt == nullptr )
+    if( fmt.wFormatTag == 0 )
     {
         init( w );
         return *this;
     }
 
-    if( fmt->wFormatTag != w.fmt->wFormatTag )
+    if( fmt.wFormatTag != w.fmt.wFormatTag )
         throw std::runtime_error( "Can't concatenate waves with different format tags" );
 
-    if( fmt->nChannels != w.fmt->nChannels )
+    if( fmt.nChannels != w.fmt.nChannels )
         throw std::runtime_error( "different number of channels" );
 
-    if( fmt->nSamplesPerSec != w.fmt->nSamplesPerSec )
+    if( fmt.nSamplesPerSec != w.fmt.nSamplesPerSec )
         throw std::runtime_error( "different number of samples per second" );
 
-    if( fmt->wBitsPerSample != w.fmt->wBitsPerSample )
+    if( fmt.wBitsPerSample != w.fmt.wBitsPerSample )
         throw std::runtime_error( "different number of bits per sample" );
 
     wave_.insert( wave_.end(), w.wave_.begin(), w.wave_.end() );
@@ -186,8 +190,8 @@ Wave& Wave::operator+=( const Wave &w ) throw( std::exception )
 void Wave::init( const Wave& w )
 {
     fmthdr = w.fmthdr;
-    fmt = reinterpret_cast<FMT*>( new char[fmthdr.fmtSIZE] );
-    memcpy( fmt, w.fmt, fmthdr.fmtSIZE );
+    fmt = w.fmt;
+    fmt_extra_bytes_    = w.fmt_extra_bytes_;
     riff = w.riff;
     data = w.data;
     fact = w.fact;
@@ -217,17 +221,17 @@ void Wave::update_data_size()
 
 int16_t Wave::get_channels() const
 {
-    return fmt->nChannels;
+    return fmt.nChannels;
 }
 
 int32_t Wave::get_samples_per_sec() const
 {
-    return fmt->nSamplesPerSec;
+    return fmt.nSamplesPerSec;
 }
 
 int32_t Wave::get_avg_bytes_per_sec() const
 {
-    return fmt->nAvgBytesPerSec;
+    return fmt.nAvgBytesPerSec;
 }
 
 void Wave::get_samples( unsigned int offset, unsigned int size, std::vector<char> & samples ) const
@@ -258,17 +262,17 @@ void Wave::append_samples( const char* samples, int size )
 
 void Wave::append_samples( const std::vector<char> & samples_l, const std::vector<char> & samples_r )
 {
-    if( fmt->nChannels != 2 )
+    if( fmt.nChannels != 2 )
         throw std::logic_error( (
                 "Wave::append_samples(): cannot add stereo samples, nChannels = " +
-                std::to_string( fmt->nChannels )).c_str() );
+                std::to_string( fmt.nChannels )).c_str() );
 
     if( samples_l.size() != samples_r.size() )
         throw std::logic_error( (
                 "Wave::append_samples(): samples have different sizes, l " +
                 std::to_string( samples_l.size() ) + " r " + std::to_string( samples_r.size() )).c_str() );
 
-    int bytes_per_sample   = fmt->wBitsPerSample / 8;
+    int bytes_per_sample   = fmt.wBitsPerSample / 8;
 
     size_t size = samples_l.size();
 
@@ -284,12 +288,12 @@ void Wave::append_samples( const std::vector<char> & samples_l, const std::vecto
 
 void Wave::append_samples( const char* samples_l, const char* samples_r, int size )
 {
-    if( fmt->nChannels != 2 )
+    if( fmt.nChannels != 2 )
         throw std::logic_error( (
                 "Wave::append_samples(): cannot add stereo samples, nChannels = " +
-                std::to_string( fmt->nChannels )).c_str() );
+                std::to_string( fmt.nChannels )).c_str() );
 
-    int bytes_per_sample   = fmt->wBitsPerSample / 8;
+    int bytes_per_sample   = fmt.wBitsPerSample / 8;
 
     for( int i = 0; i < size; i = i + bytes_per_sample )
     {
@@ -308,9 +312,10 @@ void Wave::save( const std::string & filename )
     file.write( reinterpret_cast<char*>( & riff ), RIFF_SIZE );
     file.write( reinterpret_cast<char*>( & fmthdr ), FMTHDR_SIZE );
 
-    file.write( reinterpret_cast<char*>( fmt ), fmthdr.fmtSIZE );
+    file.write( reinterpret_cast<char*>( & fmt ), FMT_SIZE );
+    file.write( & fmt_extra_bytes_[0] , fmt_extra_bytes_.size() );
 
-    if( fmt->wFormatTag > 1 )
+    if( fmt.wFormatTag > 1 )
     {
         file.write( reinterpret_cast<char*>( &extra_param_length_ ), 2 );
         if( extra_param_length_ > 0 )
@@ -325,4 +330,3 @@ void Wave::save( const std::string & filename )
     file.write( reinterpret_cast<char*>( & data ), DATA_SIZE );
     file.write( & wave_[0] , data.dataSIZE );
 }
-
