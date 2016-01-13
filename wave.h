@@ -19,7 +19,7 @@
 
  */
 
-// $Revision: 1690 $ $Date:: 2015-04-01 #$ $Author: serge $
+// $Revision: 3173 $ $Date:: 2016-01-13 #$ $Author: serge $
 
 #ifndef LIB_WAVE_WAVE_H
 #define LIB_WAVE_WAVE_H
@@ -50,6 +50,7 @@ public:
     int16_t get_channels() const;
     int32_t get_samples_per_sec() const;
     int32_t get_avg_bytes_per_sec() const;
+    int32_t get_data_size() const;
 
     void get_samples( unsigned int offset, unsigned int size, std::vector<char> & samples ) const;
     void append_samples( const std::vector<char> & samples );

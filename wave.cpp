@@ -19,7 +19,7 @@
 
  */
 
-// $Revision: 1690 $ $Date:: 2015-04-01 #$ $Author: serge $
+// $Revision: 3173 $ $Date:: 2016-01-13 #$ $Author: serge $
 
 #include "wave.h"           // self
 
@@ -232,6 +232,11 @@ int32_t Wave::get_samples_per_sec() const
 int32_t Wave::get_avg_bytes_per_sec() const
 {
     return fmt.nAvgBytesPerSec;
+}
+
+int32_t Wave::get_data_size() const
+{
+    return data.dataSIZE;
 }
 
 void Wave::get_samples( unsigned int offset, unsigned int size, std::vector<char> & samples ) const
