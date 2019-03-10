@@ -19,7 +19,7 @@
 
  */
 
-// $Revision: 3173 $ $Date:: 2016-01-13 #$ $Author: serge $
+// $Revision: 3198 $ $Date:: 2016-01-18 #$ $Author: serge $
 
 #include "wave.h"           // self
 
